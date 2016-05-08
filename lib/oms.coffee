@@ -136,27 +136,33 @@ class @['OverlappingMarkerSpiderfier']
       pt
   
   p.spiderListener = (marker, event) ->
+    # spiderfied === spread, unspiderfied == clumped
     marker['isUnspiderfied'] = marker['_omsData']?
-    @['unspiderfy']() unless marker['isUnspiderfied'] and @['keepSpiderfied']
-    if marker['isUnspiderfied'] or @map.getStreetView().getVisible() or @map.getMapTypeId() is 'GoogleEarthAPI'  # don't spiderfy in Street View or GE Plugin!
-      @trigger('click', marker, event)
-    else
-      nearbyMarkerData = []
-      nonNearbyMarkers = []
-      nDist = @['nearbyDistance']
-      pxSq = nDist * nDist
-      markerPt = @llToPt(marker.position)
-      for m in @markers
-        continue unless m.map? and m.getVisible()  # at 2011-08-12, property m.visible is undefined in API v3.5
-        mPt = @llToPt(m.position)
-        if @ptDistanceSq(mPt, markerPt) < pxSq
-          nearbyMarkerData.push(marker: m, markerPt: mPt)
-        else
-          nonNearbyMarkers.push(m)
-      if nearbyMarkerData.length is 1  # 1 => the one clicked => none nearby
-        @trigger('click', marker, event)
+    # removed so that markers don't clump -- unspiderfy -- when you click on
+    # a separated -- spiderfied -- marker. This allows multiple selection of
+    # separated markers.
+    # Markers can be reclumped -- unspiderfied -- by clicking on a blank area 
+    # of the map.
+    #@['unspiderfy']() unless marker['isUnspiderfied'] and @['keepSpiderfied']
+    nearbyMarkerData = []
+    nonNearbyMarkers = []
+    nDist = @['nearbyDistance']
+    pxSq = nDist * nDist
+    markerPt = @llToPt(marker.position)
+    for m in @markers
+      continue unless m.map? and m.getVisible()  # at 2011-08-12, property m.visible is undefined in API v3.5
+      mPt = @llToPt(m.position)
+      if @ptDistanceSq(mPt, markerPt) < pxSq
+        nearbyMarkerData.push(marker: m, markerPt: mPt)
       else
-        @spiderfy(nearbyMarkerData, nonNearbyMarkers)
+        nonNearbyMarkers.push(m)
+    marker['hasNearby'] = nearbyMarkerData.length > 1
+    # always raise the click event so a marker's state can be changed
+    @trigger('click', marker, event)
+    # don't spiderfy in Street View or GE Plugin!
+    if !marker['isUnspiderfied'] and !@map.getStreetView().getVisible() and !(@map.getMapTypeId() is 'GoogleEarthAPI')
+      # don't separate -- spiderfy -- markers that don't have any near neighbors
+      @spiderfy(nearbyMarkerData, nonNearbyMarkers) unless !marker['hasNearby']
   
   p['markersNearMarker'] = (marker, firstOnly = no) ->
     unless @projHelper.getProjection()?
