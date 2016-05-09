@@ -1,0 +1,3 @@
+## don't need javascript versions of the coffee files
+##
+lib/*.js
